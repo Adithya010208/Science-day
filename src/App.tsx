@@ -47,7 +47,7 @@ import { twMerge } from 'tailwind-merge';
 import { format } from 'date-fns';
 
 import { EnergyData, SectorData, AIInsight, SystemAlert, HealthStatus } from './types';
-import { subscribeToEnergyData, subscribeToHistory, updateFirebaseDeviceStatus, saveEnergyDataToHistory } from './services/firebaseService';
+import { subscribeToEnergyData, subscribeToHistory, updateFirebaseDeviceStatus, saveEnergyDataToHistory } from './services/thingSpeakService';
 import { generateEnergyInsights, predictLoadForecast } from './services/geminiService';
 
 function cn(...inputs: ClassValue[]) {
@@ -281,66 +281,7 @@ export default function App() {
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if Firebase is configured (either via env or fallbacks in service)
-    const isFirebaseConfigured = !!(
-      (import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCoqZMZhe_02gZAPZyY8tJ9xr6ApOfFN7g") && 
-      (import.meta.env.VITE_FIREBASE_DATABASE_URL || "https://energy-magement-system-default-rtdb.firebaseio.com") && 
-      (import.meta.env.VITE_FIREBASE_PROJECT_ID || "energy-magement-system")
-    );
-
-    if (!isFirebaseConfigured) {
-      setIsOffline(true);
-      setFetchError("Firebase credentials missing. Running in Simulation Mode.");
-      
-      // Simulation Mode
-      const simInterval = setInterval(() => {
-        const mockData: EnergyData = {
-          voltage: 220 + Math.random() * 10,
-          current: 0.5 + Math.random() * 2,
-          power: 100 + Math.random() * 500,
-          energy: 15.4 + Math.random(),
-          deviceStatus: true,
-          timestamp: new Date().toISOString()
-        };
-        setRealTimeData(mockData);
-        setLastUpdate(new Date());
-        setLastRawResponse({ mode: "SIMULATION", ...mockData });
-        
-        setSectors(prev => prev.map(s => {
-          if (s.isHardware) {
-            return {
-              ...s,
-              load: mockData.power,
-              voltage: mockData.voltage,
-              current: mockData.current,
-              status: 'Active'
-            };
-          } else {
-            const newVoltage = 220 + Math.random() * 10;
-            const loadFluctuation = (Math.random() - 0.5) * 0.05;
-            const newLoad = s.status === 'Active' ? Math.max(s.load * (1 + loadFluctuation), 10) : 0;
-            const newCurrent = newLoad / newVoltage;
-            const newConsumption = s.consumption + (newLoad * 3 / 3600000);
-            return {
-              ...s,
-              voltage: newVoltage,
-              load: newLoad,
-              current: newCurrent,
-              consumption: newConsumption
-            };
-          }
-        }));
-
-        setHistory(prev => {
-          const newHist = [...prev, mockData].slice(-20);
-          return newHist;
-        });
-      }, 3000);
-
-      return () => clearInterval(simInterval);
-    }
-
-    // Subscribe to Firebase Real-time Data
+    // Subscribe to Firebase Real-time Data (now actual ThingSpeak data!)
     const unsubscribeData = subscribeToEnergyData((data) => {
       if (data) {
         setRealTimeData(data);
@@ -466,11 +407,36 @@ export default function App() {
 
   const handleToggleHardware = async () => {
     if (!realTimeData) return;
-    await updateFirebaseDeviceStatus(!realTimeData.deviceStatus);
+    
+    // Optimistic UI update for immediate feedback
+    const newStatus = !realTimeData.deviceStatus;
+    setRealTimeData(prev => prev ? { ...prev, deviceStatus: newStatus } : prev);
+    setSectors(prev => prev.map(s => s.isHardware ? { ...s, status: newStatus ? 'Active' : 'Idle' } : s));
+    
+    // This will now retry for 16 seconds in the background
+    const success = await updateFirebaseDeviceStatus(newStatus);
+    if (!success) {
+      // Revert if it completely failed after 16 seconds of retrying
+      setRealTimeData(prev => prev ? { ...prev, deviceStatus: !newStatus } : prev);
+      setSectors(prev => prev.map(s => s.isHardware ? { ...s, status: !newStatus ? 'Active' : 'Idle' } : s));
+      console.error("Failed to establish 2-way ThingSpeak connection after 16s.");
+    }
   };
 
   const handleGlobalAction = async (activate: boolean) => {
-    await updateFirebaseDeviceStatus(activate);
+    if (!realTimeData) return;
+    
+    // Optimistic UI update
+    setRealTimeData(prev => prev ? { ...prev, deviceStatus: activate } : prev);
+    setSectors(prev => prev.map(s => s.isHardware ? { ...s, status: activate ? 'Active' : 'Idle' } : s));
+    
+    const success = await updateFirebaseDeviceStatus(activate);
+    if (!success) {
+      // Revert if it failed
+      setRealTimeData(prev => prev ? { ...prev, deviceStatus: !activate } : prev);
+      setSectors(prev => prev.map(s => s.isHardware ? { ...s, status: !activate ? 'Active' : 'Idle' } : s));
+      console.error("Failed to establish 2-way ThingSpeak connection after 16s.");
+    }
   };
 
   const utilization = realTimeData ? Math.min(Math.round((realTimeData.power / 2000) * 100), 100) : 0;
@@ -478,6 +444,7 @@ export default function App() {
 
   const carbonSaved = realTimeData ? (realTimeData.energy * 0.82).toFixed(3) : "0.000";
   const costSavings = realTimeData ? (realTimeData.energy * 0.15).toFixed(3) : "0.000";
+  const predictedBill = realTimeData ? ((realTimeData.energy * 30) * 8.0).toFixed(2) : "0.00";
 
   return (
     <div className="min-h-screen bg-app-bg text-slate-200 font-sans selection:bg-brand-primary/30 relative overflow-hidden">
@@ -809,7 +776,7 @@ export default function App() {
                     <Leaf className="text-brand-success w-7 h-7" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-app-muted uppercase font-black tracking-widest mb-1">Carbon Offset</p>
+                    <p className="text-[10px] text-app-muted uppercase font-black tracking-widest mb-1">Total Carbon Saved</p>
                     <p className="text-3xl font-black text-white tracking-tight">{carbonSaved} <span className="text-sm font-normal text-app-muted ml-1">kg CO₂</span></p>
                   </div>
                 </div>
@@ -818,8 +785,17 @@ export default function App() {
                     <IndianRupee className="text-brand-primary w-7 h-7" />
                   </div>
                   <div>
-                    <p className="text-[10px] text-app-muted uppercase font-black tracking-widest mb-1">Cost Savings</p>
+                    <p className="text-[10px] text-app-muted uppercase font-black tracking-widest mb-1">Total Electric Bill Saved</p>
                     <p className="text-3xl font-black text-white tracking-tight">₹{costSavings}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-5">
+                  <div className="w-14 h-14 rounded-2xl bg-brand-warning/10 border border-brand-warning/20 flex items-center justify-center">
+                    <IndianRupee className="text-brand-warning w-7 h-7" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-app-muted uppercase font-black tracking-widest mb-1">Predicted 30-Day Bill</p>
+                    <p className="text-3xl font-black text-white tracking-tight">₹{predictedBill}</p>
                   </div>
                 </div>
                 <div className="p-5 rounded-2xl bg-slate-800/30 border border-app-border text-center">
