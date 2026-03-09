@@ -65,9 +65,9 @@ void setup() {
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
   
-  // Wait for Firebase to be ready
+  // Wait for Firebase to be ready (longer timeout)
   int fbTimeout = 0;
-  while (!Firebase.ready() && fbTimeout < 10) {
+  while (!Firebase.ready() && fbTimeout < 30) {
     delay(500);
     Serial.print(".");
     fbTimeout++;
@@ -77,7 +77,7 @@ void setup() {
     Serial.println("\n✓ Firebase Ready!");
     Serial.println("===== SETUP COMPLETE =====\n");
   } else {
-    Serial.println("\n✗ Firebase Failed!");
+    Serial.println("\n✗ Firebase Failed! Check Firebase Rules & Anonymous Auth");
   }
 }
 
