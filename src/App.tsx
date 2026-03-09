@@ -325,6 +325,9 @@ export default function App() {
         // Save to history for graph visualization
         saveEnergyDataToHistory(data);
         
+        // Also update local history for immediate graph display
+        setHistory(prev => [...prev, data].slice(-20));
+        
         setSectors(prev => prev.map(s => {
           if (s.isHardware) {
             return {
