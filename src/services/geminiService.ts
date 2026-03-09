@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { EnergyData, AIInsight } from "../types";
 
-const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+const genAI = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY || "" });
 
 export const generateEnergyInsights = async (data: EnergyData[]): Promise<AIInsight[]> => {
   try {
