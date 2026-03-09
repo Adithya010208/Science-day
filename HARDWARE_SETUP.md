@@ -103,23 +103,29 @@ void loop() {
     json.set("power", power);
     json.set("energy", totalKWh);
     json.set("deviceStatus", digitalRead(RELAY_PIN) == HIGH);
-    json.set("timestamp", String(millis()));
     
-    // Update latest data (overwrite)
-    Firebase.RTDB.setJSON(&fbdo, "energy_data/latest", &json);
-    
-    // Push to history (new entry each time)
+    // Push the newest data to Firebase
+    if (Firebase.RTDB.setJSON(&fbdo, "energy_data/latest", &json)) {
+      Serial.println("Data sent successfully!");
+    } else {
+      Serial.println("FAILED to send data: " + fbdo.errorReason());
+    }
+
+    // Attempt to save to history (ignoring errors for cleaner console if that's what fails)
     Firebase.RTDB.pushJSON(&fbdo, "energy_data/history", &json);
 
     // ===== Check for Remote Commands =====
     // This allows the dashboard to control your relay
     if (Firebase.RTDB.getBool(&fbdo, "device_control/status")) {
-      bool shouldBeOn = fbdo.boolData();
-      digitalWrite(RELAY_PIN, shouldBeOn ? HIGH : LOW);
-      Serial.println(shouldBeOn ? "Relay: ON" : "Relay: OFF");
+      bool controlStatus = fbdo.boolData();
+      digitalWrite(RELAY_PIN, controlStatus ? HIGH : LOW);
+      Serial.print("Relay changed to: "); 
+      Serial.println(controlStatus ? "ON" : "OFF");
+    } else {
+      Serial.println("FAILED to receive command: " + fbdo.errorReason());
     }
 
-    // Print to serial for debugging
+    // Debug output (optional - comment out in production)
     Serial.printf("V:%.2f | I:%.3f | P:%.0f | E:%.3f\n", voltage, current, power, totalKWh);
   }
 }
