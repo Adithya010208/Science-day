@@ -90,3 +90,23 @@ export const updateFirebaseDeviceStatus = async (status: boolean) => {
     return false;
   }
 };
+
+export const saveEnergyDataToHistory = async (data: EnergyData) => {
+  if (!db) return false;
+
+  try {
+    const historyRef = ref(db, `energy_data/history/${Date.now()}`);
+    await set(historyRef, {
+      voltage: data.voltage,
+      current: data.current,
+      power: data.power,
+      energy: data.energy,
+      deviceStatus: data.deviceStatus,
+      timestamp: data.timestamp
+    });
+    return true;
+  } catch (error) {
+    console.error("Error saving energy data to history:", error);
+    return false;
+  }
+};

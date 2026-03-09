@@ -47,7 +47,7 @@ import { twMerge } from 'tailwind-merge';
 import { format } from 'date-fns';
 
 import { EnergyData, SectorData, AIInsight, SystemAlert, HealthStatus } from './types';
-import { subscribeToEnergyData, subscribeToHistory, updateFirebaseDeviceStatus } from './services/firebaseService';
+import { subscribeToEnergyData, subscribeToHistory, updateFirebaseDeviceStatus, saveEnergyDataToHistory } from './services/firebaseService';
 import { generateEnergyInsights, predictLoadForecast } from './services/geminiService';
 
 function cn(...inputs: ClassValue[]) {
@@ -321,6 +321,9 @@ export default function App() {
         setIsOffline(false);
         setFetchError(null);
         setLastRawResponse(data);
+        
+        // Save to history for graph visualization
+        saveEnergyDataToHistory(data);
         
         setSectors(prev => prev.map(s => {
           if (s.isHardware) {
