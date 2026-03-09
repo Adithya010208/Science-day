@@ -161,7 +161,7 @@ const SectorCard: React.FC<SectorCardProps> = ({ sector, onToggle, onClick }) =>
   </div>
 );
 
-const SectorDetailModal = ({ sector, onClose }: { sector: SectorData, onClose: () => void }) => (
+const SectorDetailModal = ({ sector, lastUpdate, onClose }: { sector: SectorData, lastUpdate: Date, onClose: () => void }) => (
   <motion.div 
     initial={{ opacity: 0 }}
     animate={{ opacity: 1 }}
@@ -925,6 +925,7 @@ export default function App() {
           {selectedSector && (
             <SectorDetailModal 
               sector={selectedSector} 
+              lastUpdate={lastUpdate}
               onClose={() => setSelectedSector(null)} 
             />
           )}
