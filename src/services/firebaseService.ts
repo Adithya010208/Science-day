@@ -110,3 +110,17 @@ export const saveEnergyDataToHistory = async (data: EnergyData) => {
     return false;
   }
 };
+
+export const subscribeToDeviceControl = (callback: (status: boolean) => void) => {
+  if (!db) return () => {};
+
+  const controlRef = ref(db, 'device_control/status');
+  onValue(controlRef, (snapshot) => {
+    const status = snapshot.val();
+    if (status !== null) {
+      callback(Boolean(status));
+    }
+  });
+
+  return () => off(controlRef);
+};

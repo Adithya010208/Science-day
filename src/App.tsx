@@ -114,6 +114,11 @@ const SectorCard: React.FC<SectorCardProps> = ({ sector, onToggle, onClick }) =>
           sector.status === 'Active' ? "bg-brand-success shadow-[0_0_8px_rgba(16,185,129,0.5)]" : "bg-app-muted"
         )} />
         <h4 className="font-bold text-sm text-slate-200">{sector.name}</h4>
+        {sector.isHardware && (
+          <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-brand-danger/20 text-brand-danger border border-brand-danger/30 animate-pulse">
+            LIVE
+          </span>
+        )}
       </div>
       <span className={cn(
         "text-[10px] font-black px-2 py-0.5 rounded border",
@@ -217,6 +222,28 @@ const SectorDetailModal = ({ sector, onClose }: { sector: SectorData, onClose: (
           The voltage stability is within the ±5% tolerance range, ensuring longevity of connected hardware.
         </p>
       </div>
+
+      {sector.isHardware && (
+        <div className="p-6 rounded-2xl bg-brand-danger/5 border border-brand-danger/10">
+          <div className="flex items-center gap-3 mb-4">
+            <Cpu className="w-4 h-4 text-brand-danger" />
+            <h4 className="text-xs font-black text-white uppercase tracking-widest">Live Hardware Device</h4>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-[11px]">
+            <div>
+              <span className="text-app-muted">Status:</span>
+              <p className="font-bold text-brand-success">Connected & Active</p>
+            </div>
+            <div>
+              <span className="text-app-muted">Last Update:</span>
+              <p className="font-mono font-bold text-white">{format(lastUpdate, 'HH:mm:ss')}</p>
+            </div>
+          </div>
+          <p className="text-[10px] text-app-muted mt-3 leading-relaxed">
+            ⚡ This sector is connected to real hardware via Firebase. Toggle the device status below to control the relay.
+          </p>
+        </div>
+      )}
     </motion.div>
   </motion.div>
 );
