@@ -373,12 +373,26 @@ export default function App() {
     }
 
     setIsAiLoading(true);
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('AI request timeout')), 30000)
+    );
+    
     try {
-      const newInsights = await generateEnergyInsights(history.slice(-10));
+      const newInsights = await Promise.race([
+        generateEnergyInsights(history.slice(-10)),
+        timeout
+      ]) as any[];
       setInsights(newInsights);
-      const newForecast = await predictLoadForecast(history.slice(-10));
+      
+      const newForecast = await Promise.race([
+        predictLoadForecast(history.slice(-10)),
+        timeout
+      ]) as any[];
       setForecast(newForecast);
       setLastAiUpdate(new Date());
+    } catch (error: any) {
+      console.error("AI error:", error);
+      // Keep loading false even if error occurred
     } finally {
       setIsAiLoading(false);
     }
@@ -386,12 +400,26 @@ export default function App() {
 
   const handleManualAiRefresh = async () => {
     setIsAiLoading(true);
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('AI request timeout')), 30000)
+    );
+    
     try {
-      const newInsights = await generateEnergyInsights(history.slice(-10));
+      const newInsights = await Promise.race([
+        generateEnergyInsights(history.slice(-10)),
+        timeout
+      ]) as any[];
       setInsights(newInsights);
-      const newForecast = await predictLoadForecast(history.slice(-10));
+      
+      const newForecast = await Promise.race([
+        predictLoadForecast(history.slice(-10)),
+        timeout
+      ]) as any[];
       setForecast(newForecast);
       setLastAiUpdate(new Date());
+    } catch (error: any) {
+      console.error("AI refresh error:", error);
+      // Keep loading false even if error occurred
     } finally {
       setIsAiLoading(false);
     }
@@ -655,10 +683,16 @@ export default function App() {
                     </div>
                     <p className="text-sm text-slate-300 leading-relaxed font-medium">{insight.message}</p>
                   </motion.div>
-                )) : (
+                )) : isAiLoading ? (
                   <div className="flex flex-col items-center justify-center h-full text-app-muted py-12">
                     <RefreshCw className="w-10 h-10 mb-4 animate-spin text-brand-primary/40" />
                     <p className="text-[10px] uppercase font-black tracking-[0.3em]">Processing Data...</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-app-muted py-12">
+                    <Lightbulb className="w-10 h-10 mb-4 text-brand-primary/40" />
+                    <p className="text-[10px] uppercase font-black tracking-[0.3em] mb-2">No Insights Yet</p>
+                    <p className="text-[9px] text-app-muted/60">Click refresh to analyze current data</p>
                   </div>
                 )}
               </AnimatePresence>
